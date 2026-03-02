@@ -253,3 +253,16 @@ export const AIMessage = styled.p`
   line-height: 1.5;
   color: ${({ theme }) => theme.colors.otelGray};
 `;
+
+export const ChatHistory = styled.div`
+  max-height: 400px;
+  overflow-y: auto;
+  display: grid;
+  gap: 8px;
+`;
+
+export const ChatMessage = styled.p`
+  margin: 0;
+  line-height: 1.5;
+  color: ${({ theme }) => theme.colors.otelGray};
+`;

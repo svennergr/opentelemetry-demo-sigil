@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import ProductReviewGateway from '../gateways/rpc/ProductReview.gateway';
+import { ChatMessage } from '../protos/demo';
 
 const ProductReviewService = () => ({
 
@@ -15,8 +16,8 @@ const ProductReviewService = () => ({
 
         return averageScore;
     },
-    async askProductAIAssistant(id: string, question: string) {
-        const response = await ProductReviewGateway.askProductAIAssistant(id, question);
+    async askProductAIAssistant(id: string, question: string, history: ChatMessage[]) {
+        const response = await ProductReviewGateway.askProductAIAssistant(id, question, history);
 
         return response;
     },

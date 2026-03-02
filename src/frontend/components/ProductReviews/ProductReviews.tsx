@@ -54,18 +54,18 @@ const ProductReviews = () => {
 
     // AI Assistant (provider-driven)
     const [aiQuestion, setAiQuestion] = useState('');
-    const { sendAiRequest, aiResponse, aiLoading, aiError, reset } = useAiAssistant();
+    const { sendAiRequest, messages, aiLoading, aiError } = useAiAssistant();
 
-    const handleAskAI = (questionOverride?: string) => {
+    const handleAskAI = async (questionOverride?: string) => {
         const q = (questionOverride ?? aiQuestion).trim();
         if (!q) return;
-        reset(); // optional: clears previous result
-        sendAiRequest({ question: q });
+        await sendAiRequest({ question: q });
+        setAiQuestion('');
     };
 
     const handleQuickPrompt = (prompt: string) => {
         setAiQuestion(prompt);
-        handleAskAI(prompt);
+        void handleAskAI(prompt);
     };
 
   return (
@@ -83,7 +83,7 @@ const ProductReviews = () => {
                     onChange={(e) => setAiQuestion(e.target.value)}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter' && !aiLoading && aiQuestion.trim()) {
-                            handleAskAI();
+                            void handleAskAI();
                         }
                     }}
                     aria-label="Question to AI"
@@ -91,7 +91,9 @@ const ProductReviews = () => {
                 />
                 <S.AskAIButton
                     type="button"
-                    onClick={() => handleAskAI()}
+                    onClick={() => {
+                        void handleAskAI();
+                    }}
                     disabled={aiLoading || !aiQuestion.trim()}
                     aria-busy={aiLoading ? 'true' : 'false'}
                     data-cy="AskAIButton"
@@ -132,11 +134,17 @@ const ProductReviews = () => {
                 </S.AIMessage>
             )}
 
-            {aiResponse && (
-                <S.AIMessage aria-live="polite" data-cy="AIAnswer">
-                    <strong>AI Response:</strong>{' '}
-                    {typeof aiResponse === 'string' ? aiResponse : aiResponse.text}
-                </S.AIMessage>
+            {messages.length > 0 && (
+                <S.ChatHistory aria-live="polite" data-cy="AIConversation">
+                    {messages.map((message, index) => (
+                        <S.ChatMessage
+                            key={`${message.role}-${index}`}
+                            data-cy={message.role === 'user' ? 'AIUserMessage' : 'AIAssistantMessage'}
+                        >
+                            <strong>{message.role === 'user' ? 'You:' : 'AI:'}</strong> {message.content}
+                        </S.ChatMessage>
+                    ))}
+                </S.ChatHistory>
             )}
         </S.AskAISection>
 

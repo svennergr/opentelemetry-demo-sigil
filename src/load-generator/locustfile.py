@@ -150,13 +150,29 @@ class WebsiteUser(HttpUser):
     @task(1)
     def ask_product_ai_assistant(self):
         product = random.choice(products)
-        question = 'Can you summarize the product reviews?'
-        with self.tracer.start_as_current_span("user_ask_product_ai_assistant", context=Context(), attributes={"product.id": product, "question": question}):
-            logging.info(f"Asking the AI Assistant a question for: {product} {question}")
-            question = {
-                "question": question
+        first_question = 'Can you summarize the product reviews?'
+        with self.tracer.start_as_current_span("user_ask_product_ai_assistant", context=Context(), attributes={"product.id": product, "question": first_question}):
+            logging.info(f"Asking the AI Assistant a question for: {product} {first_question}")
+            first_payload = {
+                "question": first_question
             }
-            self.client.post("/api/product-ask-ai-assistant/" + product, json=question)
+            first_response = self.client.post("/api/product-ask-ai-assistant/" + product, json=first_payload)
+
+            second_question = "Were there any negative reviews?"
+            assistant_response = ""
+            if first_response.ok:
+                try:
+                    assistant_response = first_response.json()
+                except Exception:
+                    assistant_response = ""
+            second_payload = {
+                "question": second_question,
+                "history": [
+                    {"role": "user", "content": first_question},
+                    {"role": "assistant", "content": assistant_response},
+                ],
+            }
+            self.client.post("/api/product-ask-ai-assistant/" + product, json=second_payload)
 
     @task(3)
     def get_ads(self):

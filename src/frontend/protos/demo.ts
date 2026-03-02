@@ -109,9 +109,15 @@ export interface GetAverageProductReviewScoreResponse {
   averageScore: string;
 }
 
+export interface ChatMessage {
+  role: string;
+  content: string;
+}
+
 export interface AskProductAIAssistantRequest {
   productId: string;
   question: string;
+  history: ChatMessage[];
 }
 
 export interface AskProductAIAssistantResponse {
@@ -1584,8 +1590,84 @@ export const GetAverageProductReviewScoreResponse: MessageFns<GetAverageProductR
   },
 };
 
+function createBaseChatMessage(): ChatMessage {
+  return { role: "", content: "" };
+}
+
+export const ChatMessage: MessageFns<ChatMessage> = {
+  encode(message: ChatMessage, writer: BinaryWriter = new BinaryWriter()): BinaryWriter {
+    if (message.role !== "") {
+      writer.uint32(10).string(message.role);
+    }
+    if (message.content !== "") {
+      writer.uint32(18).string(message.content);
+    }
+    return writer;
+  },
+
+  decode(input: BinaryReader | Uint8Array, length?: number): ChatMessage {
+    const reader = input instanceof BinaryReader ? input : new BinaryReader(input);
+    const end = length === undefined ? reader.len : reader.pos + length;
+    const message = createBaseChatMessage();
+    while (reader.pos < end) {
+      const tag = reader.uint32();
+      switch (tag >>> 3) {
+        case 1: {
+          if (tag !== 10) {
+            break;
+          }
+
+          message.role = reader.string();
+          continue;
+        }
+        case 2: {
+          if (tag !== 18) {
+            break;
+          }
+
+          message.content = reader.string();
+          continue;
+        }
+      }
+      if ((tag & 7) === 4 || tag === 0) {
+        break;
+      }
+      reader.skip(tag & 7);
+    }
+    return message;
+  },
+
+  fromJSON(object: any): ChatMessage {
+    return {
+      role: isSet(object.role) ? globalThis.String(object.role) : "",
+      content: isSet(object.content) ? globalThis.String(object.content) : "",
+    };
+  },
+
+  toJSON(message: ChatMessage): unknown {
+    const obj: any = {};
+    if (message.role !== "") {
+      obj.role = message.role;
+    }
+    if (message.content !== "") {
+      obj.content = message.content;
+    }
+    return obj;
+  },
+
+  create<I extends Exact<DeepPartial<ChatMessage>, I>>(base?: I): ChatMessage {
+    return ChatMessage.fromPartial(base ?? ({} as any));
+  },
+  fromPartial<I extends Exact<DeepPartial<ChatMessage>, I>>(object: I): ChatMessage {
+    const message = createBaseChatMessage();
+    message.role = object.role ?? "";
+    message.content = object.content ?? "";
+    return message;
+  },
+};
+
 function createBaseAskProductAIAssistantRequest(): AskProductAIAssistantRequest {
-  return { productId: "", question: "" };
+  return { productId: "", question: "", history: [] };
 }
 
 export const AskProductAIAssistantRequest: MessageFns<AskProductAIAssistantRequest> = {
@@ -1595,6 +1677,9 @@ export const AskProductAIAssistantRequest: MessageFns<AskProductAIAssistantReque
     }
     if (message.question !== "") {
       writer.uint32(18).string(message.question);
+    }
+    for (const v of message.history) {
+      ChatMessage.encode(v!, writer.uint32(26).fork()).join();
     }
     return writer;
   },
@@ -1622,6 +1707,14 @@ export const AskProductAIAssistantRequest: MessageFns<AskProductAIAssistantReque
           message.question = reader.string();
           continue;
         }
+        case 3: {
+          if (tag !== 26) {
+            break;
+          }
+
+          message.history.push(ChatMessage.decode(reader, reader.uint32()));
+          continue;
+        }
       }
       if ((tag & 7) === 4 || tag === 0) {
         break;
@@ -1639,6 +1732,7 @@ export const AskProductAIAssistantRequest: MessageFns<AskProductAIAssistantReque
         ? globalThis.String(object.product_id)
         : "",
       question: isSet(object.question) ? globalThis.String(object.question) : "",
+      history: globalThis.Array.isArray(object?.history) ? object.history.map((e: any) => ChatMessage.fromJSON(e)) : [],
     };
   },
 
@@ -1650,6 +1744,9 @@ export const AskProductAIAssistantRequest: MessageFns<AskProductAIAssistantReque
     if (message.question !== "") {
       obj.question = message.question;
     }
+    if (message.history?.length) {
+      obj.history = message.history.map((e) => ChatMessage.toJSON(e));
+    }
     return obj;
   },
 
@@ -1660,6 +1757,7 @@ export const AskProductAIAssistantRequest: MessageFns<AskProductAIAssistantReque
     const message = createBaseAskProductAIAssistantRequest();
     message.productId = object.productId ?? "";
     message.question = object.question ?? "";
+    message.history = object.history?.map((e) => ChatMessage.fromPartial(e)) || [];
     return message;
   },
 };

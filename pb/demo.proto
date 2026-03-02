@@ -132,9 +132,15 @@ message GetAverageProductReviewScoreResponse {
     string average_score = 1;
 }
 
+message ChatMessage {
+    string role = 1;
+    string content = 2;
+}
+
 message AskProductAIAssistantRequest {
     string product_id = 1;
     string question = 2;
+    repeated ChatMessage history = 3;
 }
 
 message AskProductAIAssistantResponse {

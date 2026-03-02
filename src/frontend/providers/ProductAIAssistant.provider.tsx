@@ -1,32 +1,31 @@
 // Copyright The OpenTelemetry Authors
 // SPDX-License-Identifier: Apache-2.0
 
-import { createContext, useContext, useEffect, useMemo } from 'react';
-import { useMutation, MutateOptions } from '@tanstack/react-query';
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import ApiGateway from '../gateways/Api.gateway';
 
 export interface AiRequestPayload {
     question: string;
 }
 
-export type AiResponse = { text: string } | string;
+export interface AiMessage {
+    role: 'user' | 'assistant';
+    content: string;
+}
 
 interface AiAssistantContextValue {
-    aiResponse: AiResponse | null;
+    messages: AiMessage[];
     aiLoading: boolean;
     aiError: Error | null;
-    sendAiRequest: (
-        payload: AiRequestPayload,
-        options?: MutateOptions<AiResponse, Error, AiRequestPayload, unknown>
-    ) => void;
+    sendAiRequest: (payload: AiRequestPayload) => Promise<void>;
     reset: () => void;
 }
 
 const Context = createContext<AiAssistantContextValue>({
-    aiResponse: null,
+    messages: [],
     aiLoading: false,
     aiError: null,
-    sendAiRequest: () => {},
+    sendAiRequest: async () => {},
     reset: () => {},
 });
 
@@ -38,29 +37,62 @@ interface ProductAIAssistantProviderProps {
 }
 
 const ProductAIAssistantProvider = ({ children, productId }: ProductAIAssistantProviderProps) => {
-    const mutation = useMutation<AiResponse, Error, AiRequestPayload>({
-        mutationFn: ({ question }) => ApiGateway.askProductAIAssistant(productId, question),
-    });
+    const [messages, setMessages] = useState<AiMessage[]>([]);
+    const [aiLoading, setAiLoading] = useState(false);
+    const [aiError, setAiError] = useState<Error | null>(null);
 
-    // Clear AI state when switching products.
+    const reset = useCallback(() => {
+        setMessages([]);
+        setAiError(null);
+        setAiLoading(false);
+    }, []);
+
+    const sendAiRequest = useCallback(
+        async ({ question }: AiRequestPayload) => {
+            let requestHistory: AiMessage[] = [];
+            const userMessage: AiMessage = { role: 'user', content: question };
+
+            setMessages((previous) => {
+                requestHistory = previous;
+                return [...previous, userMessage];
+            });
+
+            setAiError(null);
+            setAiLoading(true);
+
+            try {
+                const response = await ApiGateway.askProductAIAssistant(
+                    productId,
+                    question,
+                    requestHistory.map((message) => ({
+                        role: message.role,
+                        content: message.content,
+                    }))
+                );
+                const content = response;
+                setMessages((previous) => [...previous, { role: 'assistant', content }]);
+            } catch (error) {
+                setAiError(error instanceof Error ? error : new Error('AI request failed'));
+            } finally {
+                setAiLoading(false);
+            }
+        },
+        [productId]
+    );
+
     useEffect(() => {
-        mutation.reset();
-    }, [productId]);
+        reset();
+    }, [productId, reset]);
 
     const value = useMemo(
         () => ({
-            aiResponse: mutation.data ?? null,
-            aiLoading: mutation.isPending,
-            aiError: mutation.error ?? null,
-            sendAiRequest: (
-                payload: AiRequestPayload,
-                options?: MutateOptions<AiResponse, Error, AiRequestPayload, unknown>
-            ) => {
-                mutation.mutate(payload, options);
-            },
-            reset: () => mutation.reset(),
+            messages,
+            aiLoading,
+            aiError,
+            sendAiRequest,
+            reset,
         }),
-        [mutation.data, mutation.isPending, mutation.error]
+        [messages, aiLoading, aiError, sendAiRequest, reset]
     );
 
     return <Context.Provider value={value}>{children}</Context.Provider>;
